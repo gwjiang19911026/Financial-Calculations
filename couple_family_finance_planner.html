@@ -55,7 +55,6 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
   <div class="subtitle">夫妻共同現金流、貸款、存款、股票與退休初估｜期間 1～50 年｜自動暫存</div>
 
   <div class="toolbar">
-    <button class="btn-add" onclick="manualRefresh()">重新計算 / 刷新</button>
     <button class="btn-export" onclick="exportExcel()">匯出 Excel</button>
     <button class="btn-add" onclick="exportPersonalBackup()">匯出個人備份</button>
     <button class="btn-secondary" onclick="document.getElementById('backup-import-input').click()">匯入個人備份</button>
@@ -236,7 +235,13 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
   </div>
 
   <div class="card">
-    <div class="section-title"><h2>資產與現金流預估</h2><span id="calc-status" class="note" style="margin:0;">即時計算</span></div>
+    <div class="section-title">
+      <h2>資產與現金流預估</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="calc-status" class="note" style="margin:0;">即時計算</span>
+        <button class="btn-add" type="button" onclick="manualRefresh()">重新計算 / 刷新</button>
+      </div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -306,6 +311,8 @@ function renderCashflow(type){
   const root=document.getElementById(`${type}-list`);root.innerHTML='';
   state[type].forEach(item=>{
     const row=document.createElement('div');row.className='item-row';
+    row.dataset.cashflowType=type;
+    row.dataset.itemId=String(item.id);
     row.innerHTML=`
       <input value="${esc(item.name)}" placeholder="例如：薪資、年終、餐飲、所得稅" data-role="name">
       <input type="number" value="${item.amount}" min="0" placeholder="輸入金額" data-role="amount">
@@ -340,6 +347,7 @@ function renderLoans(){
   const root=document.getElementById('loan-list');root.innerHTML='';
   state.loans.forEach(item=>{
     const row=document.createElement('div');row.className='loan-row';
+    row.dataset.loanId=String(item.id);
     row.innerHTML=`
       <input value="${esc(item.name)}" placeholder="例如：房貸、車貸、信貸" data-role="name">
       <input type="number" value="${item.amount}" min="0" placeholder="目前剩餘本金" data-role="amount">
@@ -374,6 +382,7 @@ function renderStocks(){
   const root=document.getElementById('stock-list');root.innerHTML='';
   state.stocks.forEach(item=>{
     const row=document.createElement('div');row.className='stock-row';
+    row.dataset.stockId=String(item.id);
     row.innerHTML=`
       <input value="${esc(item.name)}" placeholder="例如：台股 ETF、美股 ETF" data-role="name">
       <input type="number" value="${item.amount}" min="0" placeholder="目前投資市值" data-role="amount">
@@ -422,7 +431,55 @@ function load(){
   }catch(e){}
 }
 
+
+function syncRenderedInputsToState(){
+  // 現金流：收入、被動收入、支出、保險、稅務
+  document.querySelectorAll('.item-row[data-cashflow-type]').forEach(row=>{
+    const type=row.dataset.cashflowType;
+    const id=Number(row.dataset.itemId);
+    if(!state[type]) return;
+    const item=state[type].find(x=>Number(x.id)===id);
+    if(!item) return;
+
+    const name=row.querySelector('[data-role="name"]');
+    const amount=row.querySelector('[data-role="amount"]');
+    const frequency=row.querySelector('[data-role="frequency"]');
+    if(name) item.name=name.value;
+    if(amount) item.amount=Number(amount.value)||0;
+    if(frequency) item.frequency=frequency.value;
+  });
+
+  // 貸款
+  document.querySelectorAll('.loan-row[data-loan-id]').forEach(row=>{
+    const id=Number(row.dataset.loanId);
+    const item=state.loans.find(x=>Number(x.id)===id);
+    if(!item) return;
+    const name=row.querySelector('[data-role="name"]');
+    const amount=row.querySelector('[data-role="amount"]');
+    const rate=row.querySelector('[data-role="rate"]');
+    const years=row.querySelector('[data-role="years"]');
+    if(name) item.name=name.value;
+    if(amount) item.amount=Number(amount.value)||0;
+    if(rate) item.annualRate=Number(rate.value)||0;
+    if(years) item.years=Number(years.value)||0;
+  });
+
+  // 股票 / 投資
+  document.querySelectorAll('.stock-row[data-stock-id]').forEach(row=>{
+    const id=Number(row.dataset.stockId);
+    const item=state.stocks.find(x=>Number(x.id)===id);
+    if(!item) return;
+    const name=row.querySelector('[data-role="name"]');
+    const amount=row.querySelector('[data-role="amount"]');
+    const rate=row.querySelector('[data-role="rate"]');
+    if(name) item.name=name.value;
+    if(amount) item.amount=Number(amount.value)||0;
+    if(rate) item.annualRate=Number(rate.value)||0;
+  });
+}
+
 function calculate(){
+  syncRenderedInputsToState();
   let years=Math.round(Number(document.getElementById('projection-years').value)||10);
   years=Math.max(1,Math.min(50,years));document.getElementById('projection-years').value=years;
 
@@ -627,6 +684,7 @@ function calculate(){
 
 function manualRefresh(){
   try{
+    syncRenderedInputsToState();
     calculate();
     const calcStatus=document.getElementById('calc-status');
     if(calcStatus){
@@ -1111,12 +1169,14 @@ function queueRecalculate(){
 
 document.addEventListener('input', e => {
   if (e.target.matches('input, select')) {
+    syncRenderedInputsToState();
     queueRecalculate();
   }
 });
 
 document.addEventListener('change', e => {
   if (e.target.matches('input, select')) {
+    syncRenderedInputsToState();
     queueRecalculate();
   }
 });
