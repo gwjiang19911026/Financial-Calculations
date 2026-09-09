@@ -202,7 +202,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
       <div class="field"><label>預估壽命</label><input type="number" id="life-expectancy" value="100" min="1" max="120" step="1" oninput="calculate()"></div>
       <div class="field"><label>通膨率（%）</label><input type="number" id="inflation-rate" value="2" min="0" max="20" step="0.1" oninput="calculate()"></div>
     </div>
-    <div class="note">退休初估採夫妻共同資產。A / B 可分別設定退休年齡與每月退休金，預估壽命預設 100 歲，通膨率預設 2%。</div>
+    <div class="note">退休初估採夫妻共同資產。A / B 可分別設定退休年齡與每月退休金；若年齡尚未填寫，不影響年度收入報表，薪資仍會正常計入。預估壽命預設 100 歲，通膨率預設 2%。</div>
   </div>
 
   <div class="card">
@@ -519,10 +519,26 @@ function calculate(){
   document.getElementById('kpi-savings').textContent=money(startingSavings);
   document.getElementById('kpi-stocks').textContent=money(startingStocks);
 
-  let currentAgeA=Math.max(0,Math.round(Number(document.getElementById('current-age-a').value)||0));
-  let retirementAgeA=Math.max(currentAgeA,Math.round(Number(document.getElementById('retirement-age-a').value)||currentAgeA));
-  let currentAgeB=Math.max(0,Math.round(Number(document.getElementById('current-age-b').value)||0));
-  let retirementAgeB=Math.max(currentAgeB,Math.round(Number(document.getElementById('retirement-age-b').value)||currentAgeB));
+  const rawCurrentAgeA=Number(document.getElementById('current-age-a').value);
+  const rawRetirementAgeA=Number(document.getElementById('retirement-age-a').value);
+  const rawCurrentAgeB=Number(document.getElementById('current-age-b').value);
+  const rawRetirementAgeB=Number(document.getElementById('retirement-age-b').value);
+
+  // 只有「目前年齡」與「退休年齡」都填有效值時，
+  // 年度報表才會在退休後停止薪資；若未填，薪資照常計入，避免收入被誤判為 0。
+  const retirementEnabledA=
+    Number.isFinite(rawCurrentAgeA) && rawCurrentAgeA > 0 &&
+    Number.isFinite(rawRetirementAgeA) && rawRetirementAgeA > rawCurrentAgeA;
+
+  const retirementEnabledB=
+    Number.isFinite(rawCurrentAgeB) && rawCurrentAgeB > 0 &&
+    Number.isFinite(rawRetirementAgeB) && rawRetirementAgeB > rawCurrentAgeB;
+
+  let currentAgeA=retirementEnabledA ? Math.round(rawCurrentAgeA) : 0;
+  let retirementAgeA=retirementEnabledA ? Math.round(rawRetirementAgeA) : Infinity;
+  let currentAgeB=retirementEnabledB ? Math.round(rawCurrentAgeB) : 0;
+  let retirementAgeB=retirementEnabledB ? Math.round(rawRetirementAgeB) : Infinity;
+
   const pensionA=Math.max(0,Number(document.getElementById('monthly-pension-a').value)||0);
   const pensionB=Math.max(0,Number(document.getElementById('monthly-pension-b').value)||0);
 
@@ -535,8 +551,8 @@ function calculate(){
     const passiveAnnual=state.passiveIncome.reduce((s,x)=>s+annualEquivalent(x),0);
     const ageA=currentAgeA + (y-1);
     const ageB=currentAgeB + (y-1);
-    const annualIncomeA = ageA < retirementAgeA ? baseIncomeA : pensionA*12;
-    const annualIncomeB = ageB < retirementAgeB ? baseIncomeB : pensionB*12;
+    const annualIncomeA = (!retirementEnabledA || ageA < retirementAgeA) ? baseIncomeA : pensionA*12;
+    const annualIncomeB = (!retirementEnabledB || ageB < retirementAgeB) ? baseIncomeB : pensionB*12;
     const annualIncome=annualIncomeA+annualIncomeB+passiveAnnual;
     const annualExpense=state.expense.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+expenseGrowth,y-1);
     const annualInsurance=state.insurance.reduce((s,x)=>s+annualEquivalent(x),0);
@@ -568,10 +584,17 @@ function calculate(){
   document.getElementById('final-assets').textContent=money(final);
 
   // 夫妻退休初估
-  currentAgeA=Math.max(0,Math.round(Number(document.getElementById('current-age-a').value)||0));
-  retirementAgeA=Math.max(currentAgeA,Math.round(Number(document.getElementById('retirement-age-a').value)||currentAgeA));
-  currentAgeB=Math.max(0,Math.round(Number(document.getElementById('current-age-b').value)||0));
-  retirementAgeB=Math.max(currentAgeB,Math.round(Number(document.getElementById('retirement-age-b').value)||currentAgeB));
+  // 退休初估區本身仍需要有效年齡；未填時用簡化預設，不影響上方年度收入報表
+  const retirementCalcCurrentA = retirementEnabledA ? currentAgeA : 35;
+  const retirementCalcAgeA = retirementEnabledA ? retirementAgeA : 60;
+  const retirementCalcCurrentB = retirementEnabledB ? currentAgeB : 35;
+  const retirementCalcAgeB = retirementEnabledB ? retirementAgeB : 60;
+
+  currentAgeA=retirementCalcCurrentA;
+  retirementAgeA=retirementCalcAgeA;
+  currentAgeB=retirementCalcCurrentB;
+  retirementAgeB=retirementCalcAgeB;
+
   let lifeExpectancy=Math.max(retirementAgeA,retirementAgeB,Math.round(Number(document.getElementById('life-expectancy').value)||100));
   const totalPension=pensionA+pensionB;
   const inflationRate=Math.max(0,Number(document.getElementById('inflation-rate').value)||0)/100;
