@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>夫妻家庭財務長期規劃工具</title>
+<style>
+:root{
+  --primary:#1a73e8;--danger:#d93025;--success:#188038;--bg:#f6f8fb;
+  --card:#fff;--border:#dfe3e8;--text:#202124;--muted:#5f6368;
+}
+*{box-sizing:border-box}
+body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px}
+.container{max-width:1180px;margin:0 auto}
+h1{text-align:center;margin:0 0 8px}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:18px}
+.toolbar{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.card{background:var(--card);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.section-title h2{margin:0;font-size:21px}
+.item-row{display:grid;grid-template-columns:2fr 1fr 130px auto;gap:10px;align-items:center;margin-bottom:10px}
+.stock-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
+.loan-row{display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr auto;gap:10px;align-items:center;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:#3c4043}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font-size:15px;background:#fff}
+button{border:0;border-radius:6px;padding:9px 14px;cursor:pointer;font-weight:700}
+.btn-add{background:var(--primary);color:#fff}.btn-export{background:var(--success);color:#fff}.btn-delete{background:var(--danger);color:#fff}
+.btn-secondary{background:#e8eaed;color:#202124}
+.summary-line{display:flex;justify-content:space-between;gap:12px;padding-top:10px;margin-top:8px;border-top:1px solid var(--border);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.kpi{background:#f8f9fa;padding:14px;border-radius:10px}.kpi .label{font-size:13px;color:var(--muted)}.kpi .value{font-size:21px;font-weight:800;margin-top:5px}
+.positive{color:var(--success)}.negative{color:var(--danger)}
+.note{font-size:13px;line-height:1.6;color:var(--muted);margin-top:10px}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:960px}
+th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;position:sticky;top:0}
+.highlight{background:#e8f0fe;border-left:4px solid var(--primary);padding:12px 14px;border-radius:8px;margin-top:12px;font-weight:700}
+.asset-box{background:#f8f9fa;padding:14px;border-radius:10px;margin-top:12px}
+@media(max-width:700px){
+ body{padding:10px}.item-row,.stock-row,.loan-row{grid-template-columns:1fr 1fr}
+ .item-row button,.stock-row button,.loan-row button{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>家庭財務長期規劃工具</h1>
+  <div class="subtitle">夫妻共同現金流、貸款、存款、股票與退休初估｜期間 1～50 年｜自動暫存</div>
+
+  <div class="toolbar">
+    <button class="btn-export" onclick="exportExcel()">匯出 Excel</button>
+    <button class="btn-add" onclick="exportPersonalBackup()">匯出個人備份</button>
+    <button class="btn-secondary" onclick="document.getElementById('backup-import-input').click()">匯入個人備份</button>
+    <input id="backup-import-input" type="file" accept=".json,application/json" style="display:none">
+    <button class="btn-add" onclick="saveSnapshot()">存檔目前記錄</button>
+    <button class="btn-secondary" onclick="loadExampleDefaults()">載入範例預設值</button>
+    <button class="btn-secondary" onclick="clearCurrentData()">清空目前數值</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>本機存檔記錄</h2></div>
+    <div class="grid">
+      <div class="field">
+        <label>存檔名稱</label>
+        <input id="snapshot-name" placeholder="例如：2026 家庭財務初版">
+      </div>
+    </div>
+    <div id="snapshot-list" style="margin-top:12px;"></div>
+    <div class="note">手動存檔會建立獨立快照並保存在此瀏覽器的 localStorage。重新整理後仍可載入，但若清除瀏覽器網站資料、換瀏覽器或換電腦，這些本機存檔不會跟著移動。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>存款</h2></div>
+    <div class="grid">
+      <div class="field"><label>目前現金 / 存款（元）</label><input type="number" id="cash-savings" value="1200000" min="0" oninput="calculate()"></div>
+      <div class="field"><label>存款年利率（%）</label><input type="number" id="savings-rate" value="1.5" min="0" step="0.01" oninput="calculate()"></div>
+      <div class="field"><label>每月盈餘投入存款比例（%）</label><input type="number" id="savings-allocation" value="50" min="0" max="100" step="1" oninput="calculate()"></div>
+    </div>
+    <div class="note">每月盈餘中未投入股票的部分，會累積到存款；可設定存款利率。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>夫妻收入</h2></div>
+
+    <div class="asset-box">
+      <div class="section-title"><h2 style="font-size:17px;">A 方收入</h2><button class="btn-add" onclick="addCashflow('incomeA')">+ 新增收入</button></div>
+      <div id="incomeA-list"></div>
+      <div class="summary-line"><span>A 方每月平均收入</span><span id="monthly-incomeA-total">NT$ 0</span></div>
+    </div>
+
+    <div class="asset-box">
+      <div class="section-title"><h2 style="font-size:17px;">B 方收入</h2><button class="btn-add" onclick="addCashflow('incomeB')">+ 新增收入</button></div>
+      <div id="incomeB-list"></div>
+      <div class="summary-line"><span>B 方每月平均收入</span><span id="monthly-incomeB-total">NT$ 0</span></div>
+    </div>
+
+    <div class="summary-line"><span>家庭每月平均總收入</span><span id="monthly-income-total">NT$ 0</span></div>
+    <div class="note">夫妻收入分開輸入，但支出、貸款、存款與股票採家庭共同計算。每筆收入可設定每月 / 每季 / 每年。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>被動收入</h2>
+      <button class="btn-add" onclick="addCashflow('passiveIncome')">+ 新增被動收入</button>
+    </div>
+    <div id="passiveIncome-list"></div>
+    <div class="summary-line"><span>換算每月被動收入</span><span id="monthly-passive-total">NT$ 0</span></div>
+    <div class="note">例如租金、股息、版稅或其他退休後仍會持續的收入。被動收入不會因退休而停止。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>支出</h2><button class="btn-add" onclick="addCashflow('expense')">+ 新增支出</button></div>
+    <div id="expense-list"></div>
+    <div class="summary-line"><span>換算每月總支出</span><span id="monthly-expense-total">NT$ 0</span></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>保險支出</h2>
+      <button class="btn-add" onclick="addCashflow('insurance')">+ 新增保險</button>
+    </div>
+    <div id="insurance-list"></div>
+    <div class="summary-line"><span>換算每月保險支出</span><span id="monthly-insurance-total">NT$ 0</span></div>
+    <div class="note">可新增壽險、醫療險、意外險、車險等多筆保險，每筆可設定每月 / 每季 / 每年。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>稅務支出</h2>
+      <button class="btn-add" onclick="addCashflow('tax')">+ 新增稅務</button>
+    </div>
+    <div id="tax-list"></div>
+    <div class="summary-line"><span>換算每月稅務支出</span><span id="monthly-tax-total">NT$ 0</span></div>
+    <div class="note">預設包含所得稅、房屋稅、地價稅、牌照稅；每筆可設定每月 / 每季 / 每年。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>貸款</h2>
+      <button class="btn-add" onclick="addLoan()">+ 新增貸款</button>
+    </div>
+    <div id="loan-list"></div>
+    <div class="summary-line"><span>每月貸款還款合計</span><span id="monthly-loan">NT$ 0</span></div>
+    <div class="note">可同時建立房貸、車貸、信貸等多筆貸款。每筆採本息平均攤還，並依各自剩餘年限計算。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>股票資產</h2><button class="btn-add" onclick="addStock()">+ 新增股票 / 投資</button></div>
+    <div id="stock-list"></div>
+    <div class="summary-line"><span>目前股票總市值</span><span id="stock-total">NT$ 0</span></div>
+    <div class="note">股票以「年化報酬率」做複利試算。這是情境估算，不代表實際投資報酬。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>長期試算設定</h2></div>
+    <div class="grid">
+      <div class="field"><label>試算年數（1～50 年）</label><input type="number" id="projection-years" value="30" min="1" max="50" oninput="calculate()"></div>
+      <div class="field"><label>收入年成長率（%）</label><input type="number" id="income-growth" value="2" step="0.1" oninput="calculate()"></div>
+      <div class="field"><label>支出年成長率（%）</label><input type="number" id="expense-growth" value="2" step="0.1" oninput="calculate()"></div>
+      <div class="field"><label>每月盈餘投入股票比例（%）</label><input type="number" id="stock-allocation" value="50" min="0" max="100" step="1" oninput="calculate()"></div>
+    </div>
+    <div class="note">股票投入比例 + 存款投入比例若超過 100%，系統會優先以股票比例計算，剩餘部分進入存款。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>夫妻退休初估設定</h2></div>
+
+    <div class="asset-box">
+      <div style="font-weight:800;margin-bottom:10px;">A 方</div>
+      <div class="grid">
+        <div class="field"><label>目前年齡</label><input type="number" id="current-age-a" value="35" min="0" max="99" step="1" oninput="calculate()"></div>
+        <div class="field"><label>預計退休年齡</label><input type="number" id="retirement-age-a" value="60" min="1" max="100" step="1" oninput="calculate()"></div>
+        <div class="field"><label>退休後每月退休金（元）</label><input type="number" id="monthly-pension-a" value="25000" min="0" step="1000" oninput="calculate()"></div>
+      </div>
+    </div>
+
+    <div class="asset-box">
+      <div style="font-weight:800;margin-bottom:10px;">B 方</div>
+      <div class="grid">
+        <div class="field"><label>目前年齡</label><input type="number" id="current-age-b" value="33" min="0" max="99" step="1" oninput="calculate()"></div>
+        <div class="field"><label>預計退休年齡</label><input type="number" id="retirement-age-b" value="60" min="1" max="100" step="1" oninput="calculate()"></div>
+        <div class="field"><label>退休後每月退休金（元）</label><input type="number" id="monthly-pension-b" value="20000" min="0" step="1000" oninput="calculate()"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:14px;">
+      <div class="field"><label>預估壽命</label><input type="number" id="life-expectancy" value="100" min="1" max="120" step="1" oninput="calculate()"></div>
+      <div class="field"><label>通膨率（%）</label><input type="number" id="inflation-rate" value="2" min="0" max="20" step="0.1" oninput="calculate()"></div>
+    </div>
+    <div class="note">退休初估採夫妻共同資產。A / B 可分別設定退休年齡與每月退休金，預估壽命預設 100 歲，通膨率預設 2%。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>目前每月狀況</h2></div>
+    <div class="kpis">
+      <div class="kpi"><div class="label">月平均收入</div><div class="value" id="kpi-income">NT$ 0</div></div>
+      <div class="kpi"><div class="label">月平均生活支出</div><div class="value" id="kpi-expense">NT$ 0</div></div>
+      <div class="kpi"><div class="label">月平均保險支出</div><div class="value" id="kpi-insurance">NT$ 0</div></div>
+      <div class="kpi"><div class="label">月平均稅務支出</div><div class="value" id="kpi-tax">NT$ 0</div></div>
+      <div class="kpi"><div class="label">每月貸款</div><div class="value" id="kpi-loan">NT$ 0</div></div>
+      <div class="kpi"><div class="label">每月可運用盈餘</div><div class="value" id="kpi-net">NT$ 0</div></div>
+      <div class="kpi"><div class="label">目前存款</div><div class="value" id="kpi-savings">NT$ 0</div></div>
+      <div class="kpi"><div class="label">目前股票</div><div class="value" id="kpi-stocks">NT$ 0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>退休初估結果</h2></div>
+    <div class="kpis">
+      <div class="kpi"><div class="label">A 方距離退休</div><div class="value" id="years-to-retire-a">0 年</div></div>
+      <div class="kpi"><div class="label">B 方距離退休</div><div class="value" id="years-to-retire-b">0 年</div>
+      </div>
+      <div class="kpi"><div class="label">兩人皆退休時預估資產</div><div class="value" id="retirement-assets">NT$ 0</div></div>
+      <div class="kpi"><div class="label">退休時預估每月生活費</div><div class="value" id="retirement-monthly-expense">NT$ 0</div></div>
+      <div class="kpi"><div class="label">夫妻每月退休金合計</div><div class="value" id="retirement-pension">NT$ 0</div></div>
+      <div class="kpi"><div class="label">預估資產可支撐至</div><div class="value" id="support-age">--</div></div>
+      <div class="kpi"><div class="label">預估壽命時剩餘資產</div><div class="value" id="assets-at-life">NT$ 0</div></div>
+    </div>
+    <div class="note">退休初估採簡化模型：A / B 薪資於各自退休後停止，但被動收入會持續計入；退休後不再計入新的工作收入與貸款新增，既有金融資產持續依存款 / 股票設定報酬率成長，生活費依通膨率增加，再扣除每月退休金。</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>資產與現金流預估</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>年度</th><th>年收入</th><th>生活支出</th><th>保險支出</th><th>稅務支出</th><th>貸款支出</th>
+            <th>年度盈餘</th><th>期末存款</th><th>期末股票</th><th>總金融資產</th>
+          </tr>
+        </thead>
+        <tbody id="projection-body"></tbody>
+      </table>
+    </div>
+    <div class="highlight">期末預估總金融資產：<span id="final-assets">NT$ 0</span></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='familyFinancePlannerV4';
+const SNAPSHOT_KEY='familyFinancePlannerSnapshotsV1';
+
+let state={
+  incomeA:[
+    {id:1,name:'A 方薪資',amount:90000,frequency:'month'},
+    {id:2,name:'A 方年終獎金',amount:180000,frequency:'year'}
+  ],
+  incomeB:[
+    {id:3,name:'B 方薪資',amount:65000,frequency:'month'},
+    {id:4,name:'B 方年終獎金',amount:120000,frequency:'year'}
+  ],
+  passiveIncome:[
+    {id:5,name:'租金 / 其他被動收入',amount:0,frequency:'month'}
+  ],
+  expense:[
+    {id:11,name:'餐飲伙食',amount:18000,frequency:'month'},
+    {id:12,name:'水電瓦斯與管理費',amount:6500,frequency:'month'},
+    {id:13,name:'交通 / 油資 / 高鐵',amount:8000,frequency:'month'},
+    {id:14,name:'寵物開銷',amount:4000,frequency:'month'},
+    {id:15,name:'日常雜支與娛樂',amount:10000,frequency:'month'},
+    {id:17,name:'旅遊預算',amount:120000,frequency:'year'}
+  ],
+  insurance:[
+    {id:16,name:'醫療 / 壽險',amount:60000,frequency:'year'},
+    {id:18,name:'車險',amount:18000,frequency:'year'}
+  ],
+  tax:[
+    {id:41,name:'所得稅',amount:120000,frequency:'year'},
+    {id:42,name:'房屋稅',amount:18000,frequency:'year'},
+    {id:43,name:'地價稅',amount:12000,frequency:'year'},
+    {id:44,name:'牌照稅',amount:12000,frequency:'year'}
+  ],
+  loans:[
+    {id:31,name:'房屋貸款',amount:12000000,annualRate:2.2,years:25},
+    {id:32,name:'車貸',amount:600000,annualRate:2.8,years:4}
+  ],
+  stocks:[
+    {id:21,name:'台股 / ETF',amount:1800000,annualRate:6},
+    {id:22,name:'美股 / ETF',amount:700000,annualRate:7}
+  ]
+};
+
+function esc(s){return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
+function money(n){n=Math.round(Number(n)||0);return `${n<0?'-':''}NT$ ${Math.abs(n).toLocaleString('zh-TW')}`}
+function freqFactor(f){return f==='month'?12:f==='quarter'?4:1}
+function monthlyEquivalent(item){return (Number(item.amount)||0)*freqFactor(item.frequency)/12}
+function annualEquivalent(item){return (Number(item.amount)||0)*freqFactor(item.frequency)}
+
+function renderCashflow(type){
+  const root=document.getElementById(`${type}-list`);root.innerHTML='';
+  state[type].forEach(item=>{
+    const row=document.createElement('div');row.className='item-row';
+    row.innerHTML=`
+      <input value="${esc(item.name)}" placeholder="項目名稱" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="金額" data-role="amount">
+      <select data-role="frequency">
+        <option value="month" ${item.frequency==='month'?'selected':''}>每月</option>
+        <option value="quarter" ${item.frequency==='quarter'?'selected':''}>每季</option>
+        <option value="year" ${item.frequency==='year'?'selected':''}>每年</option>
+      </select>
+      <button class="btn-delete" type="button">刪除</button>`;
+    row.querySelector('[data-role="name"]').addEventListener('input',e=>{item.name=e.target.value;calculate()});
+    row.querySelector('[data-role="amount"]').addEventListener('input',e=>{item.amount=Number(e.target.value)||0;calculate()});
+    row.querySelector('[data-role="frequency"]').addEventListener('change',e=>{item.frequency=e.target.value;calculate()});
+    row.querySelector('button').addEventListener('click',()=>{state[type]=state[type].filter(x=>x.id!==item.id);renderCashflow(type);calculate()});
+    root.appendChild(row);
+  });
+}
+
+
+function loanMonthlyPayment(loan){
+  const principal=Math.max(0,Number(loan.amount)||0);
+  const annualRate=Math.max(0,Number(loan.annualRate)||0);
+  const years=Math.max(0,Number(loan.years)||0);
+  const months=Math.round(years*12);
+  if(principal<=0||months<=0)return 0;
+  if(annualRate===0)return principal/months;
+  const r=annualRate/100/12;
+  const p=Math.pow(1+r,months);
+  return principal*(r*p)/(p-1);
+}
+
+function renderLoans(){
+  const root=document.getElementById('loan-list');root.innerHTML='';
+  state.loans.forEach(item=>{
+    const row=document.createElement('div');row.className='loan-row';
+    row.innerHTML=`
+      <input value="${esc(item.name)}" placeholder="貸款名稱" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="剩餘本金" data-role="amount">
+      <input type="number" value="${item.annualRate}" min="0" step="0.01" placeholder="年利率 %" data-role="rate">
+      <input type="number" value="${item.years}" min="0" step="1" placeholder="剩餘年限" data-role="years">
+      <button class="btn-delete" type="button">刪除</button>`;
+    row.querySelector('[data-role="name"]').addEventListener('input',e=>{item.name=e.target.value;calculate()});
+    row.querySelector('[data-role="amount"]').addEventListener('input',e=>{item.amount=Number(e.target.value)||0;calculate()});
+    row.querySelector('[data-role="rate"]').addEventListener('input',e=>{item.annualRate=Number(e.target.value)||0;calculate()});
+    row.querySelector('[data-role="years"]').addEventListener('input',e=>{item.years=Number(e.target.value)||0;calculate()});
+    row.querySelector('button').addEventListener('click',()=>{state.loans=state.loans.filter(x=>x.id!==item.id);renderLoans();calculate()});
+    root.appendChild(row);
+  });
+}
+
+function addLoan(){
+  state.loans.push({id:Date.now()+Math.random(),name:'',amount:0,annualRate:2.1,years:5});
+  renderLoans();calculate();
+}
+
+function annualLoanPaymentForYear(yearIndex){
+  return state.loans.reduce((sum,loan)=>{
+    const monthly=loanMonthlyPayment(loan);
+    const totalMonths=Math.max(0,Math.round((Number(loan.years)||0)*12));
+    const startMonth=yearIndex*12;
+    const monthsThisYear=Math.max(0,Math.min(12,totalMonths-startMonth));
+    return sum + monthly*monthsThisYear;
+  },0);
+}
+
+function renderStocks(){
+  const root=document.getElementById('stock-list');root.innerHTML='';
+  state.stocks.forEach(item=>{
+    const row=document.createElement('div');row.className='stock-row';
+    row.innerHTML=`
+      <input value="${esc(item.name)}" placeholder="股票 / ETF 名稱" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="目前市值" data-role="amount">
+      <input type="number" value="${item.annualRate}" step="0.1" placeholder="年化率 %" data-role="rate">
+      <button class="btn-delete" type="button">刪除</button>`;
+    row.querySelector('[data-role="name"]').addEventListener('input',e=>{item.name=e.target.value;calculate()});
+    row.querySelector('[data-role="amount"]').addEventListener('input',e=>{item.amount=Number(e.target.value)||0;calculate()});
+    row.querySelector('[data-role="rate"]').addEventListener('input',e=>{item.annualRate=Number(e.target.value)||0;calculate()});
+    row.querySelector('button').addEventListener('click',()=>{state.stocks=state.stocks.filter(x=>x.id!==item.id);renderStocks();calculate()});
+    root.appendChild(row);
+  });
+}
+
+function addCashflow(type){
+  state[type].push({id:Date.now()+Math.random(),name:'',amount:0,frequency:'month'});
+  renderCashflow(type);calculate();
+}
+function addStock(){
+  state.stocks.push({id:Date.now()+Math.random(),name:'',amount:0,annualRate:6});
+  renderStocks();calculate();
+}
+
+
+
+function weightedStockRate(){
+  const total=state.stocks.reduce((s,x)=>s+(Number(x.amount)||0),0);
+  if(total<=0){
+    if(!state.stocks.length)return 0;
+    return state.stocks.reduce((s,x)=>s+(Number(x.annualRate)||0),0)/state.stocks.length/100;
+  }
+  return state.stocks.reduce((s,x)=>s+(Number(x.amount)||0)*(Number(x.annualRate)||0)/100,0)/total;
+}
+
+function save(){
+  const form={};
+  ['cash-savings','savings-rate','savings-allocation','projection-years','income-growth','expense-growth','stock-allocation','current-age-a','retirement-age-a','monthly-pension-a','current-age-b','retirement-age-b','monthly-pension-b','life-expectancy','inflation-rate']
+  .forEach(id=>form[id]=document.getElementById(id).value);
+  localStorage.setItem(STORAGE_KEY,JSON.stringify({state,form}));
+}
+function load(){
+  try{
+    const x=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(!x)return;
+    if(x.state)state=x.state;
+    Object.entries(x.form||{}).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v});
+  }catch(e){}
+}
+
+function calculate(){
+  let years=Math.round(Number(document.getElementById('projection-years').value)||10);
+  years=Math.max(1,Math.min(50,years));document.getElementById('projection-years').value=years;
+
+  const monthlyIncomeA=state.incomeA.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyIncomeB=state.incomeB.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyPassive=state.passiveIncome.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyIncome=monthlyIncomeA+monthlyIncomeB+monthlyPassive;
+  const monthlyExpense=state.expense.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyInsurance=state.insurance.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyTax=state.tax.reduce((s,x)=>s+monthlyEquivalent(x),0);
+  const monthlyLoan=state.loans.reduce((s,x)=>s+loanMonthlyPayment(x),0);
+  const monthlyNet=monthlyIncome-monthlyExpense-monthlyInsurance-monthlyTax-monthlyLoan;
+  const startingSavings=Number(document.getElementById('cash-savings').value)||0;
+  const savingsRate=(Number(document.getElementById('savings-rate').value)||0)/100;
+  const incomeGrowth=(Number(document.getElementById('income-growth').value)||0)/100;
+  const expenseGrowth=(Number(document.getElementById('expense-growth').value)||0)/100;
+  let stockAlloc=Math.max(0,Math.min(100,Number(document.getElementById('stock-allocation').value)||0))/100;
+  const stockRate=weightedStockRate();
+
+  const startingStocks=state.stocks.reduce((s,x)=>s+(Number(x.amount)||0),0);
+
+  document.getElementById('monthly-incomeA-total').textContent=money(monthlyIncomeA);
+  document.getElementById('monthly-incomeB-total').textContent=money(monthlyIncomeB);
+  document.getElementById('monthly-passive-total').textContent=money(monthlyPassive);
+  document.getElementById('monthly-income-total').textContent=money(monthlyIncome);
+  document.getElementById('monthly-expense-total').textContent=money(monthlyExpense);
+  document.getElementById('monthly-insurance-total').textContent=money(monthlyInsurance);
+  document.getElementById('monthly-tax-total').textContent=money(monthlyTax);
+  document.getElementById('monthly-loan').textContent=money(monthlyLoan);
+  document.getElementById('stock-total').textContent=money(startingStocks);
+  document.getElementById('kpi-income').textContent=money(monthlyIncome);
+  document.getElementById('kpi-expense').textContent=money(monthlyExpense);
+  document.getElementById('kpi-insurance').textContent=money(monthlyInsurance);
+  document.getElementById('kpi-tax').textContent=money(monthlyTax);
+  document.getElementById('kpi-loan').textContent=money(monthlyLoan);
+  const netEl=document.getElementById('kpi-net');netEl.textContent=money(monthlyNet);netEl.className='value '+(monthlyNet>=0?'positive':'negative');
+  document.getElementById('kpi-savings').textContent=money(startingSavings);
+  document.getElementById('kpi-stocks').textContent=money(startingStocks);
+
+  let currentAgeA=Math.max(0,Math.round(Number(document.getElementById('current-age-a').value)||0));
+  let retirementAgeA=Math.max(currentAgeA,Math.round(Number(document.getElementById('retirement-age-a').value)||currentAgeA));
+  let currentAgeB=Math.max(0,Math.round(Number(document.getElementById('current-age-b').value)||0));
+  let retirementAgeB=Math.max(currentAgeB,Math.round(Number(document.getElementById('retirement-age-b').value)||currentAgeB));
+  const pensionA=Math.max(0,Number(document.getElementById('monthly-pension-a').value)||0);
+  const pensionB=Math.max(0,Number(document.getElementById('monthly-pension-b').value)||0);
+
+  let savings=startingSavings,stocks=startingStocks;
+  const tbody=document.getElementById('projection-body');tbody.innerHTML='';
+
+  for(let y=1;y<=years;y++){
+    const baseIncomeA=state.incomeA.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+incomeGrowth,y-1);
+    const baseIncomeB=state.incomeB.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+incomeGrowth,y-1);
+    const passiveAnnual=state.passiveIncome.reduce((s,x)=>s+annualEquivalent(x),0);
+    const ageA=currentAgeA + (y-1);
+    const ageB=currentAgeB + (y-1);
+    const annualIncomeA = ageA < retirementAgeA ? baseIncomeA : pensionA*12;
+    const annualIncomeB = ageB < retirementAgeB ? baseIncomeB : pensionB*12;
+    const annualIncome=annualIncomeA+annualIncomeB+passiveAnnual;
+    const annualExpense=state.expense.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+expenseGrowth,y-1);
+    const annualInsurance=state.insurance.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualTax=state.tax.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualLoan=annualLoanPaymentForYear(y-1);
+    const surplus=annualIncome-annualExpense-annualInsurance-annualTax-annualLoan;
+
+    savings*=1+savingsRate;
+    stocks*=1+stockRate;
+
+    if(surplus>=0){
+      const toStocks=surplus*stockAlloc;
+      stocks+=toStocks;
+      savings+=surplus-toStocks;
+    }else{
+      savings+=surplus;
+    }
+
+    const totalAssets=savings+stocks;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>第 ${y} 年</td><td>${money(annualIncome)}</td><td>${money(annualExpense)}</td>
+      <td>${money(annualInsurance)}</td><td>${money(annualTax)}</td><td>${money(annualLoan)}</td><td class="${surplus>=0?'positive':'negative'}">${money(surplus)}</td>
+      <td class="${savings>=0?'positive':'negative'}">${money(savings)}</td><td>${money(stocks)}</td>
+      <td class="${totalAssets>=0?'positive':'negative'}">${money(totalAssets)}</td>`;
+    tbody.appendChild(tr);
+  }
+  const final=savings+stocks;
+  document.getElementById('final-assets').textContent=money(final);
+
+  // 夫妻退休初估
+  currentAgeA=Math.max(0,Math.round(Number(document.getElementById('current-age-a').value)||0));
+  retirementAgeA=Math.max(currentAgeA,Math.round(Number(document.getElementById('retirement-age-a').value)||currentAgeA));
+  currentAgeB=Math.max(0,Math.round(Number(document.getElementById('current-age-b').value)||0));
+  retirementAgeB=Math.max(currentAgeB,Math.round(Number(document.getElementById('retirement-age-b').value)||currentAgeB));
+  let lifeExpectancy=Math.max(retirementAgeA,retirementAgeB,Math.round(Number(document.getElementById('life-expectancy').value)||100));
+  const totalPension=pensionA+pensionB;
+  const inflationRate=Math.max(0,Number(document.getElementById('inflation-rate').value)||0)/100;
+
+  const yearsToRetireA=Math.max(0,retirementAgeA-currentAgeA);
+  const yearsToRetireB=Math.max(0,retirementAgeB-currentAgeB);
+  const yearsUntilBothRetired=Math.max(yearsToRetireA,yearsToRetireB);
+
+  document.getElementById('years-to-retire-a').textContent=`${yearsToRetireA} 年`;
+  document.getElementById('years-to-retire-b').textContent=`${yearsToRetireB} 年`;
+  document.getElementById('retirement-pension').textContent=money(totalPension);
+
+  let retireSavings=startingSavings;
+  let retireStocks=startingStocks;
+
+  for(let y=1;y<=yearsUntilBothRetired;y++){
+    const incomeAAnnual=state.incomeA.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+incomeGrowth,y-1);
+    const incomeBAnnual=state.incomeB.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+incomeGrowth,y-1);
+
+    const incomeAActive = y<=yearsToRetireA ? incomeAAnnual : pensionA*12;
+    const incomeBActive = y<=yearsToRetireB ? incomeBAnnual : pensionB*12;
+    const passiveAnnual = state.passiveIncome.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualIncome = incomeAActive + incomeBActive + passiveAnnual;
+
+    const annualExpense=state.expense.reduce((s,x)=>s+annualEquivalent(x),0)*Math.pow(1+expenseGrowth,y-1);
+    const annualInsurance=state.insurance.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualTax=state.tax.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualLoan=annualLoanPaymentForYear(y-1);
+    const surplus=annualIncome-annualExpense-annualInsurance-annualTax-annualLoan;
+
+    retireSavings*=1+savingsRate;
+    retireStocks*=1+stockRate;
+
+    if(surplus>=0){
+      const toStocks=surplus*stockAlloc;
+      retireStocks+=toStocks;
+      retireSavings+=surplus-toStocks;
+    }else{
+      retireSavings+=surplus;
+    }
+  }
+
+  const retireAssets=retireSavings+retireStocks;
+  const currentAnnualExpense=
+    state.expense.reduce((s,x)=>s+annualEquivalent(x),0) +
+    state.insurance.reduce((s,x)=>s+annualEquivalent(x),0) +
+    state.tax.reduce((s,x)=>s+annualEquivalent(x),0);
+  const retirementAnnualExpense=currentAnnualExpense*Math.pow(1+inflationRate,yearsUntilBothRetired);
+  const retirementMonthlyExpense=retirementAnnualExpense/12;
+
+  document.getElementById('retirement-assets').textContent=money(retireAssets);
+  document.getElementById('retirement-monthly-expense').textContent=money(retirementMonthlyExpense);
+
+  let rs=retireSavings, rt=retireStocks;
+  let supportAge=Math.max(retirementAgeA,retirementAgeB);
+  let depleted=false;
+
+  const householdRetirementAge=Math.max(retirementAgeA,retirementAgeB);
+  for(let age=householdRetirementAge; age<lifeExpectancy; age++){
+    const yearsAfterRetire=age-householdRetirementAge;
+    const annualLiving=retirementAnnualExpense*Math.pow(1+inflationRate,yearsAfterRetire);
+    const annualPension=totalPension*12;
+    const annualPassive=state.passiveIncome.reduce((s,x)=>s+annualEquivalent(x),0);
+    const annualGap=annualPension+annualPassive-annualLiving;
+
+    rs*=1+savingsRate;
+    rt*=1+stockRate;
+
+    if(annualGap>=0){
+      rs+=annualGap;
+    }else{
+      let need=-annualGap;
+      if(rs>=need){
+        rs-=need;
+      }else{
+        need-=Math.max(0,rs);
+        rs=Math.min(0,rs);
+        rt-=need;
+      }
+    }
+
+    if(rs+rt<=0 && !depleted){
+      supportAge=age+1;
+      depleted=true;
+      rs=0;rt=0;
+      break;
+    }
+  }
+
+  const endAssets=Math.max(0,rs+rt);
+  const supportEl=document.getElementById('support-age');
+  supportEl.textContent=depleted?`${supportAge} 歲`:`至少 ${lifeExpectancy} 歲`;
+  supportEl.className='value '+(depleted?'negative':'positive');
+
+  const lifeEl=document.getElementById('assets-at-life');
+  lifeEl.textContent=money(endAssets);
+  lifeEl.className='value '+(endAssets>0?'positive':'negative');
+
+  save();
+}
+
+
+
+function exportPersonalBackup(){
+  calculate();
+  const backup={
+    app:'couple-family-finance-planner',
+    version:1,
+    exportedAt:new Date().toISOString(),
+    state:JSON.parse(JSON.stringify(state)),
+    form:collectFormState(),
+    snapshots:getSnapshots()
+  };
+
+  const blob=new Blob(
+    [JSON.stringify(backup,null,2)],
+    {type:'application/json;charset=utf-8;'}
+  );
+
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const now=new Date();
+  const ds=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  a.href=url;
+  a.download=`家庭財務個人備份_${ds}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importPersonalBackup(file){
+  if(!file)return;
+
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const backup=JSON.parse(reader.result);
+
+      if(!backup || backup.app!=='couple-family-finance-planner' || !backup.state){
+        alert('這不是有效的家庭財務備份檔。');
+        return;
+      }
+
+      if(!confirm('匯入備份會覆蓋目前畫面上的資料與本機手動存檔。確定要繼續嗎？')){
+        return;
+      }
+
+      state=JSON.parse(JSON.stringify(backup.state));
+
+      Object.entries(backup.form||{}).forEach(([id,value])=>{
+        const el=document.getElementById(id);
+        if(el)el.value=value;
+      });
+
+      saveSnapshots(Array.isArray(backup.snapshots)?backup.snapshots:[]);
+
+      renderCashflow('incomeA');
+      renderCashflow('incomeB');
+      renderCashflow('passiveIncome');
+      renderCashflow('expense');
+      if(state.insurance) renderCashflow('insurance');
+      if(state.tax && document.getElementById('tax-list')) renderCashflow('tax');
+      if(state.loans) renderLoans();
+      if(state.stocks) renderStocks();
+      renderSnapshots();
+      calculate();
+
+      alert('個人備份已成功匯入。');
+    }catch(e){
+      alert('備份檔讀取失敗，請確認檔案格式是否正確。');
+    }finally{
+      document.getElementById('backup-import-input').value='';
+    }
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function collectFormState(){
+  const form={};
+  ['cash-savings','savings-rate','savings-allocation','projection-years','income-growth','expense-growth','stock-allocation',
+   'current-age-a','retirement-age-a','monthly-pension-a','current-age-b','retirement-age-b','monthly-pension-b',
+   'life-expectancy','inflation-rate']
+  .forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) form[id]=el.value;
+  });
+  return form;
+}
+
+function getSnapshots(){
+  try{
+    return JSON.parse(localStorage.getItem(SNAPSHOT_KEY)||'[]');
+  }catch(e){
+    return [];
+  }
+}
+
+function saveSnapshots(items){
+  localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(items));
+}
+
+function saveSnapshot(){
+  calculate();
+  const nameInput=document.getElementById('snapshot-name');
+  const customName=(nameInput.value||'').trim();
+  const now=new Date();
+  const defaultName=`${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const snapshot={
+    id:Date.now(),
+    name:customName||defaultName,
+    createdAt:now.toISOString(),
+    state:JSON.parse(JSON.stringify(state)),
+    form:collectFormState()
+  };
+  const items=getSnapshots();
+  items.unshift(snapshot);
+  saveSnapshots(items.slice(0,30));
+  nameInput.value='';
+  renderSnapshots();
+}
+
+function loadSnapshot(id){
+  const snapshot=getSnapshots().find(x=>x.id===id);
+  if(!snapshot)return;
+  if(!confirm(`載入存檔「${snapshot.name}」？目前尚未另存的修改會被覆蓋。`))return;
+
+  state=JSON.parse(JSON.stringify(snapshot.state));
+  Object.entries(snapshot.form||{}).forEach(([key,val])=>{
+    const el=document.getElementById(key);
+    if(el)el.value=val;
+  });
+
+  renderCashflow('incomeA');
+  renderCashflow('incomeB');
+  renderCashflow('passiveIncome');
+  renderCashflow('expense');
+  renderCashflow('insurance');
+  renderCashflow('tax');
+  renderLoans();
+  renderStocks();
+  calculate();
+}
+
+function deleteSnapshot(id){
+  const items=getSnapshots();
+  const target=items.find(x=>x.id===id);
+  if(!target)return;
+  if(!confirm(`刪除存檔「${target.name}」？`))return;
+  saveSnapshots(items.filter(x=>x.id!==id));
+  renderSnapshots();
+}
+
+function renderSnapshots(){
+  const root=document.getElementById('snapshot-list');
+  if(!root)return;
+  const items=getSnapshots();
+  if(!items.length){
+    root.innerHTML='<div class="note">目前還沒有手動存檔。</div>';
+    return;
+  }
+
+  root.innerHTML='';
+  items.forEach(item=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+    const date=new Date(item.createdAt);
+    const timeText=isNaN(date.getTime())?'':date.toLocaleString('zh-TW');
+    row.innerHTML=`
+      <div style="min-width:0;">
+        <div style="font-weight:700;word-break:break-word;">${esc(item.name)}</div>
+        <div class="note" style="margin:2px 0 0;">${esc(timeText)}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" type="button" data-action="load">載入</button>
+        <button class="btn-delete" type="button" data-action="delete">刪除</button>
+      </div>`;
+    row.querySelector('[data-action="load"]').addEventListener('click',()=>loadSnapshot(item.id));
+    row.querySelector('[data-action="delete"]').addEventListener('click',()=>deleteSnapshot(item.id));
+    root.appendChild(row);
+  });
+}
+
+
+function loadExampleDefaults(){
+  if(!confirm('載入範例預設值會覆蓋目前畫面上的資料，但不會刪除你已建立的手動存檔。確定載入嗎？'))return;
+
+  state={
+    incomeA:[
+      {id:1,name:'A 方薪資',amount:90000,frequency:'month'},
+      {id:2,name:'A 方年終獎金',amount:180000,frequency:'year'}
+    ],
+    incomeB:[
+      {id:3,name:'B 方薪資',amount:65000,frequency:'month'},
+      {id:4,name:'B 方年終獎金',amount:120000,frequency:'year'}
+    ],
+    passiveIncome:[
+      {id:5,name:'租金 / 其他被動收入',amount:0,frequency:'month'}
+    ],
+    expense:[
+      {id:11,name:'餐飲伙食',amount:18000,frequency:'month'},
+      {id:12,name:'水電瓦斯與管理費',amount:6500,frequency:'month'},
+      {id:13,name:'交通 / 油資 / 高鐵',amount:8000,frequency:'month'},
+      {id:14,name:'寵物開銷',amount:4000,frequency:'month'},
+      {id:15,name:'日常雜支與娛樂',amount:10000,frequency:'month'},
+      {id:17,name:'旅遊預算',amount:120000,frequency:'year'}
+    ],
+    insurance:[
+      {id:16,name:'醫療 / 壽險',amount:60000,frequency:'year'},
+      {id:18,name:'車險',amount:18000,frequency:'year'}
+    ],
+    tax:[
+      {id:41,name:'所得稅',amount:120000,frequency:'year'},
+      {id:42,name:'房屋稅',amount:18000,frequency:'year'},
+      {id:43,name:'地價稅',amount:12000,frequency:'year'},
+      {id:44,name:'牌照稅',amount:12000,frequency:'year'}
+    ],
+    loans:[
+      {id:31,name:'房屋貸款',amount:12000000,annualRate:2.2,years:25},
+      {id:32,name:'車貸',amount:600000,annualRate:2.8,years:4}
+    ],
+    stocks:[
+      {id:21,name:'台股 / ETF',amount:1800000,annualRate:6},
+      {id:22,name:'美股 / ETF',amount:700000,annualRate:7}
+    ]
+  };
+
+  const values={
+    'cash-savings':'1200000',
+    'savings-rate':'1.5',
+    'savings-allocation':'50',
+    'projection-years':'30',
+    'income-growth':'2',
+    'expense-growth':'2',
+    'stock-allocation':'50',
+    'current-age-a':'35',
+    'retirement-age-a':'60',
+    'monthly-pension-a':'25000',
+    'current-age-b':'33',
+    'retirement-age-b':'60',
+    'monthly-pension-b':'20000',
+    'life-expectancy':'100',
+    'inflation-rate':'2'
+  };
+
+  Object.entries(values).forEach(([id,value])=>{
+    const el=document.getElementById(id);
+    if(el) el.value=value;
+  });
+
+  renderCashflow('incomeA');
+  renderCashflow('incomeB');
+  renderCashflow('passiveIncome');
+  renderCashflow('expense');
+  renderCashflow('insurance');
+  renderCashflow('tax');
+  renderLoans();
+  renderStocks();
+  calculate();
+}
+
+function clearCurrentData(){
+  if(!confirm('確定要清空目前所有輸入數值嗎？手動存檔記錄不會被刪除。'))return;
+
+  state={
+    incomeA:[],
+    incomeB:[],
+    passiveIncome:[],
+    expense:[],
+    insurance:[],
+    tax:[],
+    loans:[],
+    stocks:[]
+  };
+
+  const defaults={
+    'cash-savings':'',
+    'savings-rate':'',
+    'savings-allocation':'',
+    'projection-years':'30',
+    'income-growth':'',
+    'expense-growth':'',
+    'stock-allocation':'',
+    'current-age-a':'',
+    'retirement-age-a':'',
+    'monthly-pension-a':'',
+    'current-age-b':'',
+    'retirement-age-b':'',
+    'monthly-pension-b':'',
+    'life-expectancy':'100',
+    'inflation-rate':'2'
+  };
+
+  Object.entries(defaults).forEach(([id,value])=>{
+    const el=document.getElementById(id);
+    if(el) el.value=value;
+  });
+
+  renderCashflow('incomeA');
+  renderCashflow('incomeB');
+  renderCashflow('passiveIncome');
+  renderCashflow('expense');
+  renderCashflow('insurance');
+  renderCashflow('tax');
+  renderLoans();
+  renderStocks();
+
+  localStorage.removeItem(STORAGE_KEY);
+  calculate();
+}
+
+function exportExcel(){
+  calculate();
+
+  const xmlEsc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
+  const cell=(v,type='String',style='Text')=>`<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${xmlEsc(v)}</Data></Cell>`;
+  const fcell=(formula,type='Number',style='FormulaMoney')=>`<Cell ss:StyleID="${style}" ss:Formula="${xmlEsc(formula)}"><Data ss:Type="${type}">0</Data></Cell>`;
+  const blank=()=>'<Cell/>';
+  const freqName={month:'每月',quarter:'每季',year:'每年'};
+  const formVal=id=>Number(document.getElementById(id)?.value)||0;
+  const formText=id=>document.getElementById(id)?.value||'';
+  const years=Math.max(1,Math.min(50,Math.round(formVal('projection-years')||10)));
+
+  const styles=`
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Microsoft JhengHei" ss:Size="10"/></Style>
+    <Style ss:ID="Title"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Microsoft JhengHei" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1F4E78" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="Section"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#5B9BD5" ss:Pattern="Solid"/><Alignment ss:Horizontal="Left"/></Style>
+    <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4472C4" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D9E2F3"/></Borders></Style>
+    <Style ss:ID="Text"><Alignment ss:Horizontal="Left"/></Style>
+    <Style ss:ID="Input"><Font ss:Color="#0000FF"/><Interior ss:Color="#FFF2CC" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="InputMoney"><Font ss:Color="#0000FF"/><Interior ss:Color="#FFF2CC" ss:Pattern="Solid"/><NumberFormat ss:Format="# ,##0;[Red](# ,##0);-"/></Style>
+    <Style ss:ID="InputPct"><Font ss:Color="#0000FF"/><Interior ss:Color="#FFF2CC" ss:Pattern="Solid"/><NumberFormat ss:Format="0.0%"/></Style>
+    <Style ss:ID="InputNum"><Font ss:Color="#0000FF"/><Interior ss:Color="#FFF2CC" ss:Pattern="Solid"/><NumberFormat ss:Format="0"/></Style>
+    <Style ss:ID="Formula"><Font ss:Color="#000000"/></Style>
+    <Style ss:ID="FormulaMoney"><Font ss:Color="#000000"/><NumberFormat ss:Format="# ,##0;[Red](# ,##0);-"/></Style>
+    <Style ss:ID="FormulaPct"><Font ss:Color="#000000"/><NumberFormat ss:Format="0.0%"/></Style>
+    <Style ss:ID="Money"><NumberFormat ss:Format="# ,##0;[Red](# ,##0);-"/></Style>
+    <Style ss:ID="Pct"><NumberFormat ss:Format="0.0%"/></Style>
+    <Style ss:ID="KPI"><Font ss:Bold="1" ss:Size="12"/><Interior ss:Color="#E2F0D9" ss:Pattern="Solid"/><NumberFormat ss:Format="# ,##0;[Red](# ,##0);-"/></Style>
+    <Style ss:ID="Total"><Font ss:Bold="1"/><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4472C4"/></Borders><NumberFormat ss:Format="# ,##0;[Red](# ,##0);-"/></Style>
+  </Styles>`;
+
+  let wb=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${styles}`;
+
+  // 設定 / 摘要
+  wb+=`<Worksheet ss:Name="摘要"><Table ss:ExpandedColumnCount="4">
+    <Column ss:Width="170"/><Column ss:Width="110"/><Column ss:Width="170"/><Column ss:Width="110"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="3" ss:StyleID="Title"><Data ss:Type="String">夫妻家庭財務規劃摘要</Data></Cell></Row>
+    <Row><Cell ss:MergeAcross="3" ss:StyleID="Section"><Data ss:Type="String">主要假設（藍字為可修改輸入）</Data></Cell></Row>
+    <Row>${cell('試算年數')}${cell(years,'Number','InputNum')}${cell('通膨率')}${cell(formVal('inflation-rate')/100,'Number','InputPct')}</Row>
+    <Row>${cell('收入年成長率')}${cell(formVal('income-growth')/100,'Number','InputPct')}${cell('支出年成長率')}${cell(formVal('expense-growth')/100,'Number','InputPct')}</Row>
+    <Row>${cell('目前存款')}${cell(formVal('cash-savings'),'Number','InputMoney')}${cell('存款年利率')}${cell(formVal('savings-rate')/100,'Number','InputPct')}</Row>
+    <Row>${cell('每年盈餘投入股票比例')}${cell(formVal('stock-allocation')/100,'Number','InputPct')}${cell('預估壽命')}${cell(formVal('life-expectancy')||100,'Number','InputNum')}</Row>
+    <Row>${cell('A 方目前年齡')}${cell(formVal('current-age-a'),'Number','InputNum')}${cell('A 方退休年齡')}${cell(formVal('retirement-age-a'),'Number','InputNum')}</Row>
+    <Row>${cell('A 方每月退休金')}${cell(formVal('monthly-pension-a'),'Number','InputMoney')}${cell('B 方目前年齡')}${cell(formVal('current-age-b'),'Number','InputNum')}</Row>
+    <Row>${cell('B 方退休年齡')}${cell(formVal('retirement-age-b'),'Number','InputNum')}${cell('B 方每月退休金')}${cell(formVal('monthly-pension-b'),'Number','InputMoney')}</Row>
+    <Row></Row>
+    <Row><Cell ss:MergeAcross="3" ss:StyleID="Section"><Data ss:Type="String">目前財務概況</Data></Cell></Row>
+    <Row>${cell('夫妻月平均收入')}${fcell("='收入'!R"+(state.incomeA.length+state.incomeB.length+5)+"C4",'Number','KPI')}${cell('月平均生活+保險支出')}${fcell("='支出保險'!R"+(state.expense.length+state.insurance.length+5)+"C4",'Number','KPI')}</Row>
+    <Row>${cell('每月貸款還款')}${fcell("='貸款'!R"+(state.loans.length+4)+"C5",'Number','KPI')}${cell('目前股票總市值')}${fcell("='投資'!R"+(state.stocks.length+4)+"C2",'Number','KPI')}</Row>
+    <Row>${cell('每月可運用盈餘')}${fcell('=R[-2]C-R[-2]C[2]-R[-1]C','Number','KPI')}${cell('目前金融資產')}${fcell('=R[-7]C+R[-1]C[0]','Number','KPI')}</Row>
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  // 收入
+  let incRows='';
+  let r=3;
+  const writeIncome=(owner,arr)=>{
+    arr.forEach(x=>{
+      incRows+=`<Row>${cell(owner)}${cell(x.name,'String','Input')}${cell(Number(x.amount)||0,'Number','InputMoney')}${cell(freqName[x.frequency]||'每月','String','Input')}${fcell('=IF(RC[-1]=&quot;每月&quot;,12,IF(RC[-1]=&quot;每季&quot;,4,1))','Number','Formula')}${fcell('=RC[-3]*RC[-1]','Number','FormulaMoney')}${fcell('=RC[-1]/12','Number','FormulaMoney')}</Row>`;
+      r++;
+    });
+  };
+  writeIncome('A 方',state.incomeA); writeIncome('B 方',state.incomeB);
+  const incTotalRow=r;
+  wb+=`<Worksheet ss:Name="收入"><Table ss:ExpandedColumnCount="7">
+    <Column ss:Width="60"/><Column ss:Width="150"/><Column ss:Width="100"/><Column ss:Width="75"/><Column ss:Width="75"/><Column ss:Width="110"/><Column ss:Width="110"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="6" ss:StyleID="Title"><Data ss:Type="String">夫妻收入</Data></Cell></Row>
+    <Row>${cell('歸屬','String','Header')}${cell('收入項目','String','Header')}${cell('單次金額','String','Header')}${cell('頻率','String','Header')}${cell('每年次數','String','Header')}${cell('年收入','String','Header')}${cell('月平均','String','Header')}</Row>
+    ${incRows}
+    <Row>${cell('合計','String','Section')}${blank()}${blank()}${blank()}${blank()}${fcell(`=SUM(R3C6:R${incTotalRow-1}C6)`,'Number','Total')}${fcell(`=SUM(R3C7:R${incTotalRow-1}C7)`,'Number','Total')}</Row>
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  // 支出與保險
+  let expRows=''; r=3;
+  const writeExp=(cat,arr)=>arr.forEach(x=>{expRows+=`<Row>${cell(cat)}${cell(x.name,'String','Input')}${cell(Number(x.amount)||0,'Number','InputMoney')}${cell(freqName[x.frequency]||'每月','String','Input')}${fcell('=IF(RC[-1]=&quot;每月&quot;,12,IF(RC[-1]=&quot;每季&quot;,4,1))','Number','Formula')}${fcell('=RC[-3]*RC[-1]','Number','FormulaMoney')}${fcell('=RC[-1]/12','Number','FormulaMoney')}</Row>`;r++;});
+  writeExp('生活支出',state.expense); writeExp('保險',state.insurance);
+  const expTotalRow=r;
+  wb+=`<Worksheet ss:Name="支出保險"><Table ss:ExpandedColumnCount="7">
+    <Column ss:Width="75"/><Column ss:Width="150"/><Column ss:Width="100"/><Column ss:Width="75"/><Column ss:Width="75"/><Column ss:Width="110"/><Column ss:Width="110"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="6" ss:StyleID="Title"><Data ss:Type="String">生活支出與保險</Data></Cell></Row>
+    <Row>${cell('類型','String','Header')}${cell('項目','String','Header')}${cell('單次金額','String','Header')}${cell('頻率','String','Header')}${cell('每年次數','String','Header')}${cell('年支出','String','Header')}${cell('月平均','String','Header')}</Row>
+    ${expRows}
+    <Row>${cell('合計','String','Section')}${blank()}${blank()}${blank()}${blank()}${fcell(`=SUM(R3C6:R${expTotalRow-1}C6)`,'Number','Total')}${fcell(`=SUM(R3C7:R${expTotalRow-1}C7)`,'Number','Total')}</Row>
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  // 貸款
+  let loanRows=''; r=3;
+  state.loans.forEach(x=>{loanRows+=`<Row>${cell(x.name,'String','Input')}${cell(Number(x.amount)||0,'Number','InputMoney')}${cell((Number(x.annualRate)||0)/100,'Number','InputPct')}${cell(Number(x.years)||0,'Number','InputNum')}${fcell('=IF(OR(RC[-3]=0,RC[-1]=0),0,IF(RC[-2]=0,RC[-3]/(RC[-1]*12),-PMT(RC[-2]/12,RC[-1]*12,RC[-3])))','Number','FormulaMoney')}${fcell('=RC[-1]*12','Number','FormulaMoney')}</Row>`;r++;});
+  const loanTotalRow=r;
+  wb+=`<Worksheet ss:Name="貸款"><Table ss:ExpandedColumnCount="6">
+    <Column ss:Width="150"/><Column ss:Width="110"/><Column ss:Width="85"/><Column ss:Width="85"/><Column ss:Width="110"/><Column ss:Width="120"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="5" ss:StyleID="Title"><Data ss:Type="String">貸款明細</Data></Cell></Row>
+    <Row>${cell('貸款名稱','String','Header')}${cell('剩餘本金','String','Header')}${cell('年利率','String','Header')}${cell('剩餘年限','String','Header')}${cell('每月還款','String','Header')}${cell('完整年度還款','String','Header')}</Row>
+    ${loanRows}
+    <Row>${cell('合計','String','Section')}${fcell(`=SUM(R3C2:R${loanTotalRow-1}C2)`,'Number','Total')}${blank()}${blank()}${fcell(`=SUM(R3C5:R${loanTotalRow-1}C5)`,'Number','Total')}${fcell(`=SUM(R3C6:R${loanTotalRow-1}C6)`,'Number','Total')}</Row>
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  // 投資
+  let stockRows=''; r=3;
+  state.stocks.forEach(x=>{stockRows+=`<Row>${cell(x.name,'String','Input')}${cell(Number(x.amount)||0,'Number','InputMoney')}${cell((Number(x.annualRate)||0)/100,'Number','InputPct')}</Row>`;r++;});
+  const stockTotalRow=r;
+  wb+=`<Worksheet ss:Name="投資"><Table ss:ExpandedColumnCount="3">
+    <Column ss:Width="170"/><Column ss:Width="120"/><Column ss:Width="100"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="2" ss:StyleID="Title"><Data ss:Type="String">股票 / ETF</Data></Cell></Row>
+    <Row>${cell('投資名稱','String','Header')}${cell('目前市值','String','Header')}${cell('年化報酬率','String','Header')}</Row>
+    ${stockRows}
+    <Row>${cell('合計 / 加權年化率','String','Section')}${fcell(`=SUM(R3C2:R${stockTotalRow-1}C2)`,'Number','Total')}${fcell(`=IF(R${stockTotalRow}C2=0,0,SUMPRODUCT(R3C2:R${stockTotalRow-1}C2,R3C3:R${stockTotalRow-1}C3)/R${stockTotalRow}C2)`,'Number','FormulaPct')}</Row>
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  // 年度試算：公式串回其他工作表
+  const incAnnualRef=`'收入'!R${incTotalRow}C6`;
+  const expAnnualRef=`'支出保險'!R${expTotalRow}C6`;
+  const stockTotalRef=`'投資'!R${stockTotalRow}C2`;
+  const stockRateRef=`'投資'!R${stockTotalRow}C3`;
+  const savingsRef="'摘要'!R5C2";
+  const savingsRateRef="'摘要'!R5C4";
+  const incomeGrowthRef="'摘要'!R4C2";
+  const expenseGrowthRef="'摘要'!R4C4";
+  const stockAllocRef="'摘要'!R6C2";
+
+  let projRows='';
+  for(let y=1;y<=years;y++){
+    const rr=y+2;
+    let loanFormula='=0';
+    if(state.loans.length){
+      const parts=state.loans.map((_,i)=>{const lr=i+3;return `('貸款'!R${lr}C5*MAX(0,MIN(12,'貸款'!R${lr}C4*12-(${y}-1)*12)))`;});
+      loanFormula='='+parts.join('+');
+    }
+    const savingsFormula=y===1?`=${savingsRef}*(1+${savingsRateRef})+MAX(0,RC[-3])*(1-${stockAllocRef})`:`=R[-1]C*(1+${savingsRateRef})+MAX(0,RC[-3])*(1-${stockAllocRef})+MIN(0,RC[-3])`;
+    const stocksFormula=y===1?`=${stockTotalRef}*(1+${stockRateRef})+MAX(0,RC[-4])*${stockAllocRef}`:`=R[-1]C*(1+${stockRateRef})+MAX(0,RC[-4])*${stockAllocRef}`;
+    projRows+=`<Row>${cell(y,'Number','Formula')}${fcell(`=${incAnnualRef}*(1+${incomeGrowthRef})^(${y}-1)`,'Number','FormulaMoney')}${fcell(`=${expAnnualRef}*(1+${expenseGrowthRef})^(${y}-1)`,'Number','FormulaMoney')}${fcell(loanFormula,'Number','FormulaMoney')}${fcell('=RC[-3]-RC[-2]-RC[-1]','Number','FormulaMoney')}${fcell(savingsFormula,'Number','FormulaMoney')}${fcell(stocksFormula,'Number','FormulaMoney')}${fcell('=RC[-2]+RC[-1]','Number','Total')}</Row>`;
+  }
+  wb+=`<Worksheet ss:Name="年度試算"><Table ss:ExpandedColumnCount="8">
+    <Column ss:Width="60"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="115"/><Column ss:Width="115"/><Column ss:Width="125"/>
+    <Row ss:Height="28"><Cell ss:MergeAcross="7" ss:StyleID="Title"><Data ss:Type="String">年度收支與資產試算（公式版）</Data></Cell></Row>
+    <Row>${cell('年度','String','Header')}${cell('年收入','String','Header')}${cell('生活+保險支出','String','Header')}${cell('貸款支出','String','Header')}${cell('年度盈餘','String','Header')}${cell('期末存款','String','Header')}${cell('期末股票','String','Header')}${cell('總金融資產','String','Header')}</Row>
+    ${projRows}
+  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>2</SplitHorizontal><TopRowBottomPane>2</TopRowBottomPane><DoNotDisplayGridlines/></WorksheetOptions></Worksheet>`;
+
+  wb+='</Workbook>';
+  const blob=new Blob([wb],{type:'application/vnd.ms-excel;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  a.href=url;a.download=`夫妻家庭財務規劃_${ds}.xls`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+// 每次輸入或選擇都立即暫存，重新整理後可恢復
+document.addEventListener('input', e => {
+  if (e.target.matches('input, select')) {
+    try { save(); } catch (_) {}
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.matches('input, select')) {
+    try { save(); } catch (_) {}
+  }
+});
+
+document.getElementById('backup-import-input').addEventListener('change', function(e){
+  importPersonalBackup(e.target.files && e.target.files[0]);
+});
+
+load();
+renderCashflow('incomeA');renderCashflow('incomeB');renderCashflow('passiveIncome');renderCashflow('expense');renderCashflow('insurance');renderCashflow('tax');renderLoans();renderStocks();renderSnapshots();calculate();
+</script>
+</body>
+</html>
