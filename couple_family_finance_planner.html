@@ -21,6 +21,11 @@ h1{text-align:center;margin:0 0 8px}
 .item-row{display:grid;grid-template-columns:2fr 1fr 130px auto;gap:10px;align-items:center;margin-bottom:10px}
 .stock-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
 .loan-row{display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr auto;gap:10px;align-items:center;margin-bottom:10px}
+.row-head{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.row-head.item-head{display:grid;grid-template-columns:2fr 1fr 130px auto;gap:10px}
+.row-head.stock-head{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px}
+.row-head.loan-head{display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr auto;gap:10px}
+.row-head span:last-child{text-align:center}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:14px}
 .field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:#3c4043}
 input,select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font-size:15px;background:#fff}
@@ -50,6 +55,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
   <div class="subtitle">夫妻共同現金流、貸款、存款、股票與退休初估｜期間 1～50 年｜自動暫存</div>
 
   <div class="toolbar">
+    <button class="btn-add" onclick="manualRefresh()">重新計算 / 刷新</button>
     <button class="btn-export" onclick="exportExcel()">匯出 Excel</button>
     <button class="btn-add" onclick="exportPersonalBackup()">匯出個人備份</button>
     <button class="btn-secondary" onclick="document.getElementById('backup-import-input').click()">匯入個人備份</button>
@@ -86,18 +92,20 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
 
     <div class="asset-box">
       <div class="section-title"><h2 style="font-size:17px;">A 方收入</h2><button class="btn-add" onclick="addCashflow('incomeA')">+ 新增收入</button></div>
+      <div class="row-head item-head"><span>收入項目</span><span>金額</span><span>頻率</span><span>操作</span></div>
       <div id="incomeA-list"></div>
       <div class="summary-line"><span>A 方每月平均收入</span><span id="monthly-incomeA-total">NT$ 0</span></div>
     </div>
 
     <div class="asset-box">
       <div class="section-title"><h2 style="font-size:17px;">B 方收入</h2><button class="btn-add" onclick="addCashflow('incomeB')">+ 新增收入</button></div>
+      <div class="row-head item-head"><span>收入項目</span><span>金額</span><span>頻率</span><span>操作</span></div>
       <div id="incomeB-list"></div>
       <div class="summary-line"><span>B 方每月平均收入</span><span id="monthly-incomeB-total">NT$ 0</span></div>
     </div>
 
     <div class="summary-line"><span>家庭每月平均總收入</span><span id="monthly-income-total">NT$ 0</span></div>
-    <div class="note">夫妻收入分開輸入，但支出、貸款、存款與股票採家庭共同計算。每筆收入可設定每月 / 每季 / 每年。</div>
+    <div class="note">夫妻收入分開輸入，但支出、貸款、存款與股票採家庭共同計算。「金額」代表該頻率下的單次金額，例如每月薪資 90,000、每年年終 180,000。每筆收入可設定每月 / 每季 / 每年。</div>
   </div>
 
   <div class="card">
@@ -105,13 +113,15 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
       <h2>被動收入</h2>
       <button class="btn-add" onclick="addCashflow('passiveIncome')">+ 新增被動收入</button>
     </div>
+    <div class="row-head item-head"><span>被動收入項目</span><span>金額</span><span>頻率</span><span>操作</span></div>
     <div id="passiveIncome-list"></div>
     <div class="summary-line"><span>換算每月被動收入</span><span id="monthly-passive-total">NT$ 0</span></div>
-    <div class="note">例如租金、股息、版稅或其他退休後仍會持續的收入。被動收入不會因退休而停止。</div>
+    <div class="note">例如租金、股息、版稅或其他退休後仍會持續的收入。「金額」代表所選頻率的收入金額；被動收入不會因退休而停止。</div>
   </div>
 
   <div class="card">
     <div class="section-title"><h2>支出</h2><button class="btn-add" onclick="addCashflow('expense')">+ 新增支出</button></div>
+    <div class="row-head item-head"><span>支出項目</span><span>金額</span><span>頻率</span><span>操作</span></div>
     <div id="expense-list"></div>
     <div class="summary-line"><span>換算每月總支出</span><span id="monthly-expense-total">NT$ 0</span></div>
   </div>
@@ -121,6 +131,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
       <h2>保險支出</h2>
       <button class="btn-add" onclick="addCashflow('insurance')">+ 新增保險</button>
     </div>
+    <div class="row-head item-head"><span>保險項目</span><span>保費金額</span><span>頻率</span><span>操作</span></div>
     <div id="insurance-list"></div>
     <div class="summary-line"><span>換算每月保險支出</span><span id="monthly-insurance-total">NT$ 0</span></div>
     <div class="note">可新增壽險、醫療險、意外險、車險等多筆保險，每筆可設定每月 / 每季 / 每年。</div>
@@ -131,6 +142,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
       <h2>稅務支出</h2>
       <button class="btn-add" onclick="addCashflow('tax')">+ 新增稅務</button>
     </div>
+    <div class="row-head item-head"><span>稅務項目</span><span>稅額</span><span>頻率</span><span>操作</span></div>
     <div id="tax-list"></div>
     <div class="summary-line"><span>換算每月稅務支出</span><span id="monthly-tax-total">NT$ 0</span></div>
     <div class="note">預設包含所得稅、房屋稅、地價稅、牌照稅；每筆可設定每月 / 每季 / 每年。</div>
@@ -141,6 +153,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
       <h2>貸款</h2>
       <button class="btn-add" onclick="addLoan()">+ 新增貸款</button>
     </div>
+    <div class="row-head loan-head"><span>貸款名稱</span><span>剩餘本金</span><span>年利率（%）</span><span>剩餘年限（年）</span><span>操作</span></div>
     <div id="loan-list"></div>
     <div class="summary-line"><span>每月貸款還款合計</span><span id="monthly-loan">NT$ 0</span></div>
     <div class="note">可同時建立房貸、車貸、信貸等多筆貸款。每筆採本息平均攤還，並依各自剩餘年限計算。</div>
@@ -148,6 +161,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
 
   <div class="card">
     <div class="section-title"><h2>股票資產</h2><button class="btn-add" onclick="addStock()">+ 新增股票 / 投資</button></div>
+    <div class="row-head stock-head"><span>投資名稱</span><span>目前市值</span><span>年化報酬率（%）</span><span>操作</span></div>
     <div id="stock-list"></div>
     <div class="summary-line"><span>目前股票總市值</span><span id="stock-total">NT$ 0</span></div>
     <div class="note">股票以「年化報酬率」做複利試算。這是情境估算，不代表實際投資報酬。</div>
@@ -222,7 +236,7 @@ th:first-child,td:first-child{text-align:center} thead th{background:#f1f3f4;pos
   </div>
 
   <div class="card">
-    <div class="section-title"><h2>資產與現金流預估</h2></div>
+    <div class="section-title"><h2>資產與現金流預估</h2><span id="calc-status" class="note" style="margin:0;">即時計算</span></div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -293,8 +307,8 @@ function renderCashflow(type){
   state[type].forEach(item=>{
     const row=document.createElement('div');row.className='item-row';
     row.innerHTML=`
-      <input value="${esc(item.name)}" placeholder="項目名稱" data-role="name">
-      <input type="number" value="${item.amount}" min="0" placeholder="金額" data-role="amount">
+      <input value="${esc(item.name)}" placeholder="例如：薪資、年終、餐飲、所得稅" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="輸入金額" data-role="amount">
       <select data-role="frequency">
         <option value="month" ${item.frequency==='month'?'selected':''}>每月</option>
         <option value="quarter" ${item.frequency==='quarter'?'selected':''}>每季</option>
@@ -327,10 +341,10 @@ function renderLoans(){
   state.loans.forEach(item=>{
     const row=document.createElement('div');row.className='loan-row';
     row.innerHTML=`
-      <input value="${esc(item.name)}" placeholder="貸款名稱" data-role="name">
-      <input type="number" value="${item.amount}" min="0" placeholder="剩餘本金" data-role="amount">
-      <input type="number" value="${item.annualRate}" min="0" step="0.01" placeholder="年利率 %" data-role="rate">
-      <input type="number" value="${item.years}" min="0" step="1" placeholder="剩餘年限" data-role="years">
+      <input value="${esc(item.name)}" placeholder="例如：房貸、車貸、信貸" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="目前剩餘本金" data-role="amount">
+      <input type="number" value="${item.annualRate}" min="0" step="0.01" placeholder="例如 2.2" data-role="rate">
+      <input type="number" value="${item.years}" min="0" step="1" placeholder="例如 20" data-role="years">
       <button class="btn-delete" type="button">刪除</button>`;
     row.querySelector('[data-role="name"]').addEventListener('input',e=>{item.name=e.target.value;calculate()});
     row.querySelector('[data-role="amount"]').addEventListener('input',e=>{item.amount=Number(e.target.value)||0;calculate()});
@@ -361,9 +375,9 @@ function renderStocks(){
   state.stocks.forEach(item=>{
     const row=document.createElement('div');row.className='stock-row';
     row.innerHTML=`
-      <input value="${esc(item.name)}" placeholder="股票 / ETF 名稱" data-role="name">
-      <input type="number" value="${item.amount}" min="0" placeholder="目前市值" data-role="amount">
-      <input type="number" value="${item.annualRate}" step="0.1" placeholder="年化率 %" data-role="rate">
+      <input value="${esc(item.name)}" placeholder="例如：台股 ETF、美股 ETF" data-role="name">
+      <input type="number" value="${item.amount}" min="0" placeholder="目前投資市值" data-role="amount">
+      <input type="number" value="${item.annualRate}" step="0.1" placeholder="例如 6" data-role="rate">
       <button class="btn-delete" type="button">刪除</button>`;
     row.querySelector('[data-role="name"]').addEventListener('input',e=>{item.name=e.target.value;calculate()});
     row.querySelector('[data-role="amount"]').addEventListener('input',e=>{item.amount=Number(e.target.value)||0;calculate()});
@@ -599,10 +613,31 @@ function calculate(){
   lifeEl.textContent=money(endAssets);
   lifeEl.className='value '+(endAssets>0?'positive':'negative');
 
+  const calcStatus=document.getElementById('calc-status');
+  if(calcStatus){
+    const now=new Date();
+    calcStatus.textContent=`已更新 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  }
+
   save();
 }
 
 
+
+
+function manualRefresh(){
+  try{
+    calculate();
+    const calcStatus=document.getElementById('calc-status');
+    if(calcStatus){
+      const now=new Date();
+      calcStatus.textContent=`手動刷新 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    }
+  }catch(err){
+    console.error('手動刷新失敗：',err);
+    alert('重新計算失敗，請檢查是否有欄位格式異常。');
+  }
+}
 
 function exportPersonalBackup(){
   calculate();
@@ -1057,15 +1092,32 @@ function exportExcel(){
   const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   a.href=url;a.download=`夫妻家庭財務規劃_${ds}.xls`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
-// 每次輸入或選擇都立即暫存，重新整理後可恢復
+// 全頁統一即時計算＋暫存。
+// 不論是既有欄位或之後動態新增的收入、支出、貸款、保險、稅務、股票等，
+// 只要輸入值或下拉選單有變動，都會重新計算最下方統計表。
+let recalcQueued = false;
+function queueRecalculate(){
+  if (recalcQueued) return;
+  recalcQueued = true;
+  requestAnimationFrame(() => {
+    recalcQueued = false;
+    try {
+      calculate();
+    } catch (err) {
+      console.error('重新計算失敗：', err);
+    }
+  });
+}
+
 document.addEventListener('input', e => {
   if (e.target.matches('input, select')) {
-    try { save(); } catch (_) {}
+    queueRecalculate();
   }
 });
+
 document.addEventListener('change', e => {
   if (e.target.matches('input, select')) {
-    try { save(); } catch (_) {}
+    queueRecalculate();
   }
 });
 
